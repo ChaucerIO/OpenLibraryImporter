@@ -1,12 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Chaucer.Common.People
 {
     public class Household
     {
         public Guid Id { get; set; }
-        public List<Person> Members { get; set; }
-        // public decimal Fines => this.
+        public List<Patron> Members { get; set; }
+        public decimal HouseholdFees => Members.Sum(m => m.FeesOwed);
     }
 }

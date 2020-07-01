@@ -11,8 +11,8 @@ namespace Chaucer.Common.People
         public Person Person { get; set; }
         public bool AccrueFees { get; set; }
         public List<Guid> ActiveCheckouts { get; set; }
+        public LibraryCard Card { get; set; }
         
-        // Fees
         public decimal FeesOwed => OutstandingFees.Sum(f => f.RemainingFee);
         public List<AccruedFee> OutstandingFees { get; set; }
 
@@ -22,10 +22,10 @@ namespace Chaucer.Common.People
         public decimal LifetimeFees => SettledFees.Sum(f => f.OriginalFee);
         public List<AccruedFee> SettledFees { get; set; }
         
-        // checkout history
-        // active fines
-        // past fines
         public List<Guid> CheckoutHistory { get; set; }
-        
+        public List<LibraryCard> CardHistory { get; set; }
+
+        public override int GetHashCode()
+            => Id.GetHashCode();
     }
 }

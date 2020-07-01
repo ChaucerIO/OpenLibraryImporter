@@ -1,6 +1,8 @@
 using System.Collections.Generic;
 using Chaucer.Common.Contact;
+using Chaucer.Common.Extensions;
 using Chaucer.Common.People;
+using NodaTime;
 
 namespace Chaucer.Common.Network
 {
@@ -14,7 +16,8 @@ namespace Chaucer.Common.Network
         public MailingAddress MailingAddress { get; set; }
         public HoursOfOperation ActiveHours { get; set; }
         public List<HoursOfOperation> AlternativeHours { get; set; }
-        public List<NameValuePair<Person>> OtherPeople { get; set; }
-        public string TimeZone { get; set; }
+        public List<Named<Person>> OtherPeople { get; set; }
+        public string IanaTimeZone => TimeZone.Id;
+        public DateTimeZone TimeZone { get; set; }
     }
 }

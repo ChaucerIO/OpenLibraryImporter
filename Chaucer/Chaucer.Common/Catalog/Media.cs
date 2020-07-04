@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Net;
 using NodaTime;
 
 namespace Chaucer.Common.Catalog

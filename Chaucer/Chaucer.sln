@@ -6,6 +6,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Chaucer.Common", "Chaucer.C
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Chaucer.Backend", "Chaucer.Backend\Chaucer.Backend.csproj", "{2D7EF25B-48B4-408E-936E-CC3767168EEE}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Chaucer.Common.Tests", "..\Chaucer.Common.Tests\Chaucer.Common.Tests\Chaucer.Common.Tests.csproj", "{8BA351B7-45E7-4E6F-81B0-493D257FCBDB}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -24,5 +26,9 @@ Global
 		{2D7EF25B-48B4-408E-936E-CC3767168EEE}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2D7EF25B-48B4-408E-936E-CC3767168EEE}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2D7EF25B-48B4-408E-936E-CC3767168EEE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8BA351B7-45E7-4E6F-81B0-493D257FCBDB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8BA351B7-45E7-4E6F-81B0-493D257FCBDB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8BA351B7-45E7-4E6F-81B0-493D257FCBDB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8BA351B7-45E7-4E6F-81B0-493D257FCBDB}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

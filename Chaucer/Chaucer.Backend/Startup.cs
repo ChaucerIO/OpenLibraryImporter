@@ -46,15 +46,6 @@ namespace Chaucer.Backend
                         Title = "Chaucer v1",
                     });
                 
-                options.SwaggerDoc(
-                    name: "v2",
-                    info: new OpenApiInfo
-                    {
-                        Description = "Chaucer backend API",
-                        Version = "2",
-                        Title = "Chaucer v2",
-                    });
-                
                 options.OperationFilter<RemoveVersionFromParameter>();
                 options.DocumentFilter<ReplaceVersionWithExactValueInPath>();
                 
@@ -99,7 +90,8 @@ namespace Chaucer.Backend
             app.UseSwaggerUI(c =>
             {
                 c.SwaggerEndpoint($"/swagger/v1/swagger.json", name: "v1");
-                c.SwaggerEndpoint($"/swagger/v2/swagger.json", name: "v2");
+                // v2 example:
+                // c.SwaggerEndpoint($"/swagger/v2/swagger.json", name: "v2");
                 c.DisplayOperationId();
                 c.DisplayRequestDuration();
             });

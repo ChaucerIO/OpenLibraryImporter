@@ -1,29 +1,12 @@
 # README #
 
-This README would normally document whatever steps are necessary to get your application up and running.
+## Build
+1) Run `build.sh` with `Debug` or `Release` as arguments. E.g. `$ ./build.sh Release`
+1) Pack the docker container: `docker build -f Dockerfile -t chaucer/chaucer:x.y .`, substituting x.y for some reasonable version number
 
-### What is this repository for? ###
+### To do
+* Consider expressing the entire build pipeline in the `Dockerfile` as explained [here](https://docs.docker.com/engine/examples/dotnetcore/).
 
-* Quick summary
-* Version
-* [Learn Markdown](https://bitbucket.org/tutorials/markdowndemo)
+## Roadmap
+* Chaucer: https://composable.atlassian.net/projects/GEOF/issues
 
-### How do I get set up? ###
-
-* Summary of set up
-* Configuration
-* Dependencies
-* Database configuration
-* How to run tests
-* Deployment instructions
-
-### Contribution guidelines ###
-
-* Writing tests
-* Code review
-* Other guidelines
-
-### Who do I talk to? ###
-
-* Repo owner or admin
-* Other community or team contact

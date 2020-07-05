@@ -73,8 +73,8 @@ namespace Chaucer.Backend
             {
                 app.UseDeveloperExceptionPage();
             }
-
-            app.UseHttpsRedirection();
+            
+            // No need for HTTPS redirection in a docker container
 
             app.UseRouting();
 

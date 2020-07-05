@@ -6,6 +6,16 @@
         <IsPackable>false</IsPackable>
     </PropertyGroup>
 
+    <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+      <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+      <NoWarn>1701;1702;0219</NoWarn>
+    </PropertyGroup>
+
+    <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
+      <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+      <NoWarn>1701;1702;0219</NoWarn>
+    </PropertyGroup>
+
     <ItemGroup>
         <PackageReference Include="NodaTime" Version="3.0.0" />
         <PackageReference Include="nunit" Version="3.12.0" />

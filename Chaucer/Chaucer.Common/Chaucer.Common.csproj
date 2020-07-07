@@ -14,6 +14,10 @@
       <NoWarn>1701;1702;0219</NoWarn>
     </PropertyGroup>
 
+    <PropertyGroup>
+        <LangVersion>latest</LangVersion>
+    </PropertyGroup>
+
     <ItemGroup>
       <PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
       <PackageReference Include="NodaTime" Version="3.0.0" />

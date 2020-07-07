@@ -23,7 +23,7 @@ echo "Tests complete"
 
 backend="Chaucer/Chaucher.Backend/Chaucer.Backend.csproj"
 
-echo "Publishing backend app $backend"
-echo "dotnet publish $backend -c $1 -o $publish"
-dotnet publish Chaucer/Chaucer.Backend/Chaucer.Backend.csproj -c "$1" -o $publish
-echo "Publish complete"
+# echo "Publishing backend app $backend"
+# echo "dotnet publish $backend -c $1 -o $publish"
+# dotnet publish Chaucer/Chaucer.Backend/Chaucer.Backend.csproj -c "$1" -o $publish
+# echo "Publish complete"

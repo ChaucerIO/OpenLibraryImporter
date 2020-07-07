@@ -16,6 +16,10 @@
       <NoWarn>1701;1702;0219</NoWarn>
     </PropertyGroup>
 
+    <PropertyGroup>
+      <LangVersion>latest</LangVersion>
+    </PropertyGroup>
+
     <ItemGroup>
         <PackageReference Include="NodaTime" Version="3.0.0" />
         <PackageReference Include="nunit" Version="3.12.0" />
@@ -24,7 +28,7 @@
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\..\Chaucer\Chaucer.Common\Chaucer.Common.csproj" />
+      <ProjectReference Include="..\Chaucer.Common\Chaucer.Common.csproj" />
     </ItemGroup>
 
 </Project>

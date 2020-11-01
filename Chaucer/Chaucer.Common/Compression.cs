@@ -1,5 +1,9 @@
+using System;
+using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
+using System.Threading.Tasks;
+using System.Xml.Schema;
 using Newtonsoft.Json;
 
 namespace Chaucer.Common
@@ -31,6 +35,19 @@ namespace Chaucer.Common
             using (var jsonReader = new JsonTextReader(textReader))
             {
                 return serializer.Deserialize<T>(jsonReader);
+            }
+        }
+        
+        public static async IAsyncEnumerable<string> FromGzippedStringAsync(byte[] gzippedString)
+        {
+            using (var memoryStream = new MemoryStream(gzippedString))
+            using (var gzipStream = new GZipStream(memoryStream, CompressionMode.Decompress))
+            using (var textReader = new StreamReader(gzipStream))
+            {
+                while (!textReader.EndOfStream)
+                {
+                    yield return await textReader.ReadLineAsync();
+                }
             }
         }
     }

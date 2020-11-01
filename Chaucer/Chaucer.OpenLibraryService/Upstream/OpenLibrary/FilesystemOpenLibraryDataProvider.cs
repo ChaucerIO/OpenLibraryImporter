@@ -1,9 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Net;
 using System.Text;
 using System.Threading.Tasks;
 using Chaucer.Common;
+using Newtonsoft.Json;
 
 namespace Chaucer.OpenLibraryService.Upstream.OpenLibrary
 {
@@ -27,11 +30,36 @@ namespace Chaucer.OpenLibraryService.Upstream.OpenLibrary
             _fs = fs ?? throw new ArgumentNullException(nameof(fs));
         }
 
-        public async Task<IEnumerable<Author>> GetAuthorsAsync()
+        public async Task<List<Author>> GetAuthorsAsync()
         {
             var compressedAuthors = await _fs.FileReadAllBytesAsync(_path);
-            // var tabbedAuthors = Compression.
-            return Enumerable.Empty<Author>();
+            var authorBlobs = await Compression.FromGzippedStringAsync(compressedAuthors)
+                .Take(100)
+                .Select(ta => ta.Split("\t").LastOrDefault())
+                .Where(l => !string.IsNullOrWhiteSpace(l))
+                // .OrderByDescending(l => l.Length)
+                // .Select(ab => JsonConvert.DeserializeObject<Author>(ab))
+                .ToListAsync();
+            
+            // File.WriteAllLines(Path.Combine("/Users/rianjs/Downloads/biggest-authors.json"), authorBlobs);
+
+            var authors = new List<object>(authorBlobs.Count);
+
+            foreach (var author in authorBlobs)
+            {
+                ExpandedAuthor t = null;
+                try
+                {
+                    t = JsonConvert.DeserializeObject<ExpandedAuthor>(author);
+                    // yield return t;
+                    authors.Add(t);
+                }
+                catch (Exception)
+                {
+                    Console.WriteLine(author);
+                }
+            }
+            return Enumerable.Empty<Author>().ToList();
         }
 
         private async Task<string> GetGzippedString(string path, Encoding textEncoding)

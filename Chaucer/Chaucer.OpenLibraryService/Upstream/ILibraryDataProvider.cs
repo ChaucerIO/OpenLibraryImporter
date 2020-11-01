@@ -11,7 +11,7 @@ namespace Chaucer.OpenLibraryService.Upstream
         // Task<string> GetGzippedTitleJsonAsync(string path, Encoding textEncoding);
         // IEnumerable<string> ExtractTitleJson(string path);
 
-        Task<IEnumerable<Author>> GetAuthorsAsync();
+        Task<List<Author>> GetAuthorsAsync();
         // Task<IEnu
     }
 }

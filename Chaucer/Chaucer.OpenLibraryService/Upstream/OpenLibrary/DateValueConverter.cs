@@ -1,13 +1,12 @@
 using System;
+using System.Globalization;
+using Chaucer.Common;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
 namespace Chaucer.OpenLibraryService.Upstream.OpenLibrary
 {
-    /// <summary>
-    /// DateTimes follow the type + value pattern that some other values follow
-    /// </summary>
-    public class DateTimeValueConverter : JsonConverter
+    public class DateValueConverter: JsonConverter
     {
         public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
         {
@@ -17,8 +16,14 @@ namespace Chaucer.OpenLibraryService.Upstream.OpenLibrary
         public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)
         {
             var token = JToken.Load(reader);
-            var dt = (token["value"] ?? DateTime.MinValue).Value<DateTime>();
-            return dt;
+            var date = token.Value<string>();
+            
+            if (DateTime.TryParse(date, out var result))
+            {
+                return Date.FromDateTime(result);
+            }
+
+            return Date.FromDateTime(DateTime.MinValue);
         }
 
         public override bool CanConvert(Type objectType)

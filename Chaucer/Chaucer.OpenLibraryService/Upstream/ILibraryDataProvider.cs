@@ -12,6 +12,5 @@ namespace Chaucer.OpenLibraryService.Upstream
         // IEnumerable<string> ExtractTitleJson(string path);
 
         Task<List<Author>> GetAuthorsAsync();
-        // Task<IEnu
     }
 }

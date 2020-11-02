@@ -1,63 +1,72 @@
 using System;
 using System.Collections.Generic;
-using System.Text.Json.Serialization;
+using Chaucer.Common;
+using Newtonsoft.Json;
 
 namespace Chaucer.OpenLibraryService.Upstream.OpenLibrary
 {
+    /// <summary>
+    /// Represents the complete object graph from the open library data. Mostly used for deserialization purposes. For working with Authors, you are probably
+    /// looking for the <typeparam name="Author"></typeparam> datatype.
+    /// </summary>
     public class Author
     {
-        [JsonPropertyName("bio")]
+        //Note: bio is sometimes a plain string rather than an object
+        [JsonConverter(typeof(BioConverter))]
         public string Bio { get; set; }
         
-        [JsonPropertyName("name")]
-        public string DisplayName { get; set; }
+        [JsonProperty("date"), JsonConverter(typeof(DateValueConverter))]
+        public Date Date { get; set; }
         
-        [JsonPropertyName("links")]
-        public List<DisplayLink> Links { get; set; }
+        [JsonProperty("name")]
+        public string Name { get; set; }
         
-        [JsonPropertyName("personal_name")]
+        [JsonProperty("personal_name")]
         public string PersonalName { get; set; }
         
-        [JsonPropertyName("alternate_names")]
-        public List<string> AlternateNames { get; set; }
-        
-        [JsonPropertyName("title")]
+        [JsonProperty("title")]
         public string Title { get; set; }
         
-        [JsonPropertyName("wikipedia")]
-        public Uri WikipediaUri { get; set; }
+        [JsonProperty("website")]
+        public string Website { get; set; }
         
-        [JsonPropertyName("created")]
+        [JsonProperty("links"), JsonConverter(typeof(DisplayLinkConverter))]
+        public Dictionary<Uri, string> Links { get; set; }
+        
+        [JsonProperty("remote_ids")]
+        public Dictionary<string, string> RemoteIds { get; set; } 
+        
+        [JsonProperty("alternate_names")]
+        public List<string> AlternateNames { get; set; }
+        
+        [JsonProperty("created"), JsonConverter(typeof(DateTimeValueConverter))]
         public DateTime Created { get; set; }
         
-        [JsonPropertyName("last_modified")]
+        [JsonProperty("death_date")]
+        public string DeathDate { get; set; }
+
+        [JsonProperty("photos")]
+        public List<long> Photos { get; set; }
+
+        [JsonProperty("last_modified"), JsonConverter(typeof(DateTimeValueConverter))]
         public DateTime LastModified { get; set; }
         
-        [JsonPropertyName("latest_revision")]
+        [JsonProperty("latest_revision")]
         public int LatestRevision { get; set; }
         
-        [JsonPropertyName("revision")]
+        [JsonProperty("key")]
+        public string Key { get; set; }
+        
+        [JsonProperty("birth_date"), JsonConverter(typeof(DateValueConverter))]
+        public Date BirthDate { get; set; }
+        
+        [JsonProperty("fuller_name")]
+        public string FullerName { get; set; }
+        
+        [JsonProperty("revision")]
         public int Revision { get; set; }
         
-        [JsonPropertyName("photos")]
-        public List<int> Photos { get; set; }
-        
-        [JsonPropertyName("birth_date")]
-        public DateTime DateOfBirth { get; set; }
-        
-        [JsonPropertyName("person")]
-        public string EntityType { get; set; }
-        
-        [JsonPropertyName("remote_ids")]
-        public Dictionary<string, string> RemoteIds { get; set; }
-    }
-    
-    public class DisplayLink
-    {
-        [JsonPropertyName("title")]
-        public string Tag { get; set; }
-        
-        [JsonPropertyName("url")]
-        public Uri Uri { get; set; }
+        [JsonProperty("wikipedia")]
+        public string Wikipedia { get; set; }
     }
 }

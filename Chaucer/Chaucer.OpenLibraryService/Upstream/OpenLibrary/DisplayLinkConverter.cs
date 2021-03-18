@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using Chaucer.Common;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -14,15 +16,31 @@ namespace Chaucer.OpenLibraryService.Upstream.OpenLibrary
 
         public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)
         {
-            var token = JToken.Load(reader);
-            var date = token.Value<string>();
-            
-            if (DateTime.TryParse(date, out var result))
+            var elements = JToken.Load(reader) as JArray;
+            if (elements is null)
             {
-                return Date.FromDateTime(result);
+                return null;
+            }
+            
+            var dict = new Dictionary<Uri, string>(elements.Count);
+            foreach (var element in elements)
+            {
+                var url = element.SelectToken("url").ToString();
+                var uri = new Uri(url, UriKind.Absolute);
+                var title = element.SelectToken("title").ToString();
+                dict[uri] = title;
             }
 
-            return Date.FromDateTime(DateTime.MinValue);
+            return dict;
+            
+            // var date = elements.Value<string>();
+            //
+            // if (DateTime.TryParse(date, out var result))
+            // {
+            //     return Date.FromDateTime(result);
+            // }
+            //
+            // return Date.FromDateTime(DateTime.MinValue);
         }
 
         public override bool CanConvert(Type objectType)

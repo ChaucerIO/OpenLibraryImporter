@@ -11,7 +11,10 @@ namespace Chaucer.OpenLibraryService.Upstream.OpenLibrary
     {
         public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
         {
-            throw new NotImplementedException();
+            var dt = (DateTime) value;
+            var formatted = dt.ToString("O");
+            var token = JToken.FromObject(formatted);
+            token.WriteTo(writer);
         }
 
         public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)

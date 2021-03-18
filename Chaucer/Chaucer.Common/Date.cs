@@ -75,19 +75,17 @@ namespace Chaucer.Common
             var builder = new StringBuilder();
             if (Year > -1)
             {
-                builder.Append(Year.ToString().PadLeft(2));
+                builder.Append($"{Year:D4}");
             }
 
             if (Month > -1)
             {
-                builder.Append("-");
-                builder.Append(Month.ToString().PadLeft(2));
+                builder.Append($"-{Month:D2}");
             }
 
             if (Day > -1)
             {
-                builder.Append("-");
-                builder.Append(Day.ToString().PadLeft(4));
+                builder.Append($"-{Day:D2}");
             }
 
             return builder.ToString();

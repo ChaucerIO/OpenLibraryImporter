@@ -15,20 +15,18 @@ namespace Chaucer.OpenLibraryService.Upstream.OpenLibrary
         ILibraryDataProvider
     {
         private readonly string _path;
+        private readonly JsonSerializerSettings _jsonSettings;
         private readonly Encoding _textEncoding;
         private readonly IFilesystem _fs;
 
-        public FilesystemOpenLibraryDataProvider(string uri, Encoding textEncoding, IFilesystem fs)
+        public FilesystemOpenLibraryDataProvider(string uri, Encoding textEncoding, IFilesystem fs, JsonSerializerSettings jsonSettings)
         {
-            if (string.IsNullOrWhiteSpace(uri))
-            {
-                throw new ArgumentNullException(nameof(uri));
-            }
-
+            if (string.IsNullOrWhiteSpace(uri)) throw new ArgumentNullException(nameof(uri));
             _path = uri;
 
             _textEncoding = textEncoding ?? throw new ArgumentNullException(nameof(textEncoding));
             _fs = fs ?? throw new ArgumentNullException(nameof(fs));
+            _jsonSettings = jsonSettings ?? throw new ArgumentNullException(nameof(jsonSettings));
         }
 
         public async Task<List<Author>> GetAuthorsAsync()
@@ -36,14 +34,14 @@ namespace Chaucer.OpenLibraryService.Upstream.OpenLibrary
             var compressedAuthors = await _fs.FileReadAllBytesAsync(_path);
             var authorBlobs = await Compression.FromGzippedStringAsync(compressedAuthors).ToListAsync();
 
-            var expandedAuthors = authorBlobs
+            var authors = authorBlobs
                 .AsParallel()
                 .Select(ta => ta.Split("\t").LastOrDefault())
                 .Where(l => !string.IsNullOrWhiteSpace(l))
-                .Select(JsonConvert.DeserializeObject<Author>)
+                .Select(a => JsonConvert.DeserializeObject<Author>(a, _jsonSettings))
                 .ToList();
-            
-            return Enumerable.Empty<Author>().ToList();
+
+            return authors;
         }
 
         private async Task<string> GetGzippedString(string path, Encoding textEncoding)

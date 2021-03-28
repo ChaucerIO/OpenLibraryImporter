@@ -1,8 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
-using System.Linq;
-using System.Net;
 using System.Text;
 using System.Threading.Tasks;
 using Chaucer.Common;
@@ -21,30 +20,44 @@ namespace Chaucer.OpenLibraryService
             var jsonSerializerSettings = GetJsonSerializerSettings();
             var devDir = Path.Combine("/", "Users", "rianjs", "dev");
             var dataDir = Path.Combine(devDir, "chaucer", "Chaucer", "data");
-            var authorFile = "ol_dump_authors_2021-02-28.txt.gz";
-            var publicationsFile = "ol_dump_editions_2021-02-28.txt.gz";
+            var authorFile = "ol_dump_authors_2021-03-19.txt.gz";
+            var publicationsFile = "ol_dump_editions_2021-03-19.txt.gz";
             var gzAuthors = Path.Combine(dataDir, authorFile);
 
             var fs = new Filesystem();
             var fsProvider = new FilesystemOpenLibraryDataProvider(gzAuthors, encoding, fs, jsonSerializerSettings);
 
             var authors = await fsProvider.GetAuthorsAsync();
+            Console.WriteLine("Running GC");
+            GC.Collect(2);
             
             // Write down the JSON
-            var authorsJsonFile = "authors-2021-02-28.json";
+            var authorsJsonFile = "authors-2021-03-19.json";
             var fullAuthorsPath = Path.Combine(dataDir, authorsJsonFile);
-            var serializedAuthors = JsonConvert.SerializeObject(authors, jsonSerializerSettings);
-            fs.FileWriteAllText(fullAuthorsPath, serializedAuthors, encoding);
+            Console.WriteLine($"Serializing {authors.Count:N0} authors");
+            var timer = Stopwatch.StartNew();
+
+            var serializer = JsonSerializer.Create(jsonSerializerSettings);
+            using (var sw = new StreamWriter(fullAuthorsPath))
+            using (var tw = new JsonTextWriter(sw))
+            {
+                serializer.Serialize(tw, authors);
+            }
+            // var serializedAuthors = JsonConvert.SerializeObject(authors, jsonSerializerSettings);
+            Console.WriteLine($"Serialized {authors.Count:N0} in {timer.ElapsedMilliseconds:N0}ms");
+            Console.WriteLine($"Writing {authors.Count:N0} authors to {fullAuthorsPath}");
+            // fs.FileWriteAllText(fullAuthorsPath, serializedAuthors, encoding);
 
         }
         
         private static JsonSerializerSettings GetJsonSerializerSettings()
         {
+            #pragma warning disable 162
+
             #if DEBUG
             return GetDebugJsonSerializerSettings();
             #endif
             
-            #pragma warning disable 162
             return GetProdJsonSerializerSettings();
             #pragma warning restore 162
         }

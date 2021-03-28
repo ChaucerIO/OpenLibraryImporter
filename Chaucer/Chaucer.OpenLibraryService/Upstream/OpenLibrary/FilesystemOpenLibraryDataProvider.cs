@@ -31,8 +31,12 @@ namespace Chaucer.OpenLibraryService.Upstream.OpenLibrary
 
         public async Task<List<Author>> GetAuthorsAsync()
         {
+            var timer = Stopwatch.StartNew();
             var compressedAuthors = await _fs.FileReadAllBytesAsync(_path);
+            Console.WriteLine($"{timer.ElapsedMilliseconds:N0}ms to read gzip into memory");
+            timer = Stopwatch.StartNew();
             var authorBlobs = await Compression.FromGzippedStringAsync(compressedAuthors).ToListAsync();
+            Console.WriteLine($"{timer.ElapsedMilliseconds:N0}ms to decompress");
 
             var authors = authorBlobs
                 .AsParallel()

@@ -1,11 +1,15 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
+using System.Net;
+using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
 using Chaucer.Common;
+using Chaucer.OpenLibraryService.Downstream;
+using Chaucer.OpenLibraryService.Upstream;
 using Chaucer.OpenLibraryService.Upstream.OpenLibrary;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Serialization;
@@ -20,33 +24,31 @@ namespace Chaucer.OpenLibraryService
             var jsonSerializerSettings = GetJsonSerializerSettings();
             var devDir = Path.Combine("/", "Users", "rianjs", "dev");
             var dataDir = Path.Combine(devDir, "chaucer", "Chaucer", "data");
-            var authorFile = "ol_dump_authors_2021-03-19.txt.gz";
-            var publicationsFile = "ol_dump_editions_2021-03-19.txt.gz";
-            var gzAuthors = Path.Combine(dataDir, authorFile);
-
+            var openLibraryAuthorFile = "ol_dump_authors_2021-03-19.txt.gz";
+            var openLibraryPublicationsFile = "ol_dump_editions_2021-03-19.txt.gz";
+            var gzAuthors = Path.Combine(dataDir, openLibraryAuthorFile);
             var fs = new Filesystem();
-            var fsProvider = new FilesystemOpenLibraryDataProvider(gzAuthors, encoding, fs, jsonSerializerSettings);
+            // var openLibraryProvider = new FilesystemOpenOpenLibraryDataProvider(gzAuthors, fs, jsonSerializerSettings, GetLogger<IOpenLibraryDataProvider>());
+            // var authors = await openLibraryProvider.GetAuthorsAsync();
 
-            var authors = await fsProvider.GetAuthorsAsync();
-            Console.WriteLine("Running GC");
-            GC.Collect(2);
+            var chaucerProvider = new FilesystemPersistence(dataDir, jsonSerializerSettings, GetLogger<FilesystemPersistence>());
+            // write the bytes
+            var authorsRecord = "authors-2021-03-19";
+            // await chaucerProvider.WriteAuthorsAsync(authors, authorsRecord);
+            // read them back
+            // var secondAuthors = await chaucerProvider.ReadAuthorsAsync(authorsRecord) as List<Author>;
             
             // Write down the JSON
-            var authorsJsonFile = "authors-2021-03-19.json";
-            var fullAuthorsPath = Path.Combine(dataDir, authorsJsonFile);
-            Console.WriteLine($"Serializing {authors.Count:N0} authors");
-            var timer = Stopwatch.StartNew();
 
-            var serializer = JsonSerializer.Create(jsonSerializerSettings);
-            using (var sw = new StreamWriter(fullAuthorsPath))
-            using (var tw = new JsonTextWriter(sw))
+            var compressingRefreshingDnsHandler = new SocketsHttpHandler
             {
-                serializer.Serialize(tw, authors);
-            }
-            // var serializedAuthors = JsonConvert.SerializeObject(authors, jsonSerializerSettings);
-            Console.WriteLine($"Serialized {authors.Count:N0} in {timer.ElapsedMilliseconds:N0}ms");
-            Console.WriteLine($"Writing {authors.Count:N0} authors to {fullAuthorsPath}");
-            // fs.FileWriteAllText(fullAuthorsPath, serializedAuthors, encoding);
+                PooledConnectionLifetime = TimeSpan.FromSeconds(120),
+                AutomaticDecompression = DecompressionMethods.All,
+            };
+            const string url = "https://archive.org/services/collection-rss.php?collection=ol_exports";
+            var rssClient = new HttpClient(compressingRefreshingDnsHandler);
+            var rssReader = new OpenLibraryFeedManager(url, rssClient, GetLogger<OpenLibraryFeedManager>());
+            await rssReader.CheckFeedAsync();
 
         }
         
@@ -86,6 +88,21 @@ namespace Chaucer.OpenLibraryService
                 DateFormatHandling = DateFormatHandling.IsoDateFormat,
                 Converters = new List<JsonConverter> { new StringEnumConverter(), },
             };
+        }
+        
+        private static ILogger<T> GetLogger<T>()
+        {
+            using var loggerFactory = LoggerFactory.Create(builder =>
+            {
+                builder
+                    .AddFilter("Microsoft", LogLevel.Warning)
+                    .AddFilter("System", LogLevel.Warning)
+                    .AddFilter("LoggingConsoleApp.Program", LogLevel.Debug)
+                    .AddConsole();
+            });
+
+            var logger = loggerFactory.CreateLogger<T>();
+            return logger;
         }
     }
 }

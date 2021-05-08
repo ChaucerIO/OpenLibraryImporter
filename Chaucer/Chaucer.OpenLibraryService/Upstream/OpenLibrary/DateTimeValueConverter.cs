@@ -12,7 +12,7 @@ namespace Chaucer.OpenLibraryService.Upstream.OpenLibrary
         public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
         {
             var dt = (DateTime) value;
-            var formatted = dt.ToString("O");
+            var formatted = dt.ToString("s");
             var token = JToken.FromObject(formatted);
             token.WriteTo(writer);
         }
@@ -20,13 +20,15 @@ namespace Chaucer.OpenLibraryService.Upstream.OpenLibrary
         public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)
         {
             var token = JToken.Load(reader);
-            var dt = (token["value"] ?? DateTime.MinValue).Value<DateTime>();
-            return dt;
+            return token switch
+            {
+                JObject when token["value"] is not null => (token["value"] ?? DateTime.MinValue).Value<DateTime>(),
+                JValue when token.Type is JTokenType.Date => token.Value<DateTime>(),
+                _ => throw new InvalidOperationException($"{token} does not appear to be a known DateTime type")
+            };
         }
 
         public override bool CanConvert(Type objectType)
-        {
-            return objectType == typeof(string);
-        }
+            => objectType == typeof(string);
     }
 }

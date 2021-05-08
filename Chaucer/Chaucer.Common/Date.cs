@@ -23,6 +23,40 @@ namespace Chaucer.Common
             Month = month;
             Day = day;
         }
+        
+        public Date(string[] dateParts)
+        {
+            var year = -1;
+            var month = -1;
+            var day = -1;
+            
+            for (var i = 0; i < dateParts.Length; i++)
+            {
+                if (!int.TryParse(dateParts[i], out var val))
+                {
+                    throw new ArgumentOutOfRangeException($"{string.Join(",", dateParts)} does not appear to be a collection of date parts");
+                }
+                
+                switch (i)
+                {
+                    case 0:
+                        year = val;
+                        continue;
+                    case 1:
+                        month = val;
+                        continue;
+                    case 2:
+                        day = val;
+                        break;
+                    default:
+                        throw new ArgumentOutOfRangeException($"{string.Join(",", dateParts)} does not appear to be a collection of date parts");
+                }
+            }
+
+            Year = year;
+            Month = month;
+            Day = day;
+        }
 
         public Date(int year) :
             this(year, -1, -1) { }

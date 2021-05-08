@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using Chaucer.Common;
 using Newtonsoft.Json;
 
 namespace Chaucer.OpenLibraryService.Upstream.OpenLibrary
@@ -9,14 +8,14 @@ namespace Chaucer.OpenLibraryService.Upstream.OpenLibrary
     /// Represents the complete object graph from the open library data. Mostly used for deserialization purposes. For working with Authors, you are probably
     /// looking for the <typeparam name="Author"></typeparam> datatype.
     /// </summary>
-    public class Author
+    public record Author
     {
         //Note: bio is sometimes a plain string rather than an object
         [JsonConverter(typeof(BioConverter))]
         public string Bio { get; set; }
         
-        [JsonProperty("date"), JsonConverter(typeof(DateValueConverter))]
-        public Date Date { get; set; }
+        [JsonProperty("date")]
+        public string Date { get; set; }
         
         [JsonProperty("name")]
         public string Name { get; set; }
@@ -57,8 +56,8 @@ namespace Chaucer.OpenLibraryService.Upstream.OpenLibrary
         [JsonProperty("key")]
         public string Key { get; set; }
         
-        [JsonProperty("birth_date"), JsonConverter(typeof(DateValueConverter))]
-        public Date BirthDate { get; set; }
+        [JsonProperty("birth_date")]
+        public string BirthDate { get; set; }
         
         [JsonProperty("fuller_name")]
         public string FullerName { get; set; }

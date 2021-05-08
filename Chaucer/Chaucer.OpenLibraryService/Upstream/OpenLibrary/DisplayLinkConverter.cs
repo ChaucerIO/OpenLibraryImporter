@@ -1,8 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Web;
-using Chaucer.Common;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -15,12 +13,6 @@ namespace Chaucer.OpenLibraryService.Upstream.OpenLibrary
         public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
         {
             throw new NotImplementedException();
-            // var typed = (Dictionary<Uri, string>) value;
-            // foreach (var element in typed)
-            // {
-            //     writer.WriteValue(element.Key.ToString());
-            //     writer.WriteValue(element.Value);
-            // }
         }
 
         public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)
@@ -70,10 +62,10 @@ namespace Chaucer.OpenLibraryService.Upstream.OpenLibrary
                 return null;
             }
 
-            var normalized = broken.Trim();//.Replace(" ", "");
+            var normalized = broken.Trim();
             
             // Missing http
-            if (!normalized.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+            if (!normalized.StartsWith(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase))
             {
                 var newUri = Uri.UriSchemeHttp;
                 var hasScheme = normalized.Contains(Uri.SchemeDelimiter, StringComparison.Ordinal);
@@ -100,8 +92,6 @@ namespace Chaucer.OpenLibraryService.Upstream.OpenLibrary
             var hostnameType = Uri.CheckHostName(normalized);
             if (hostnameType != UriHostNameType.Dns)
             {
-                // Multiple http prefixes => Unhandled
-
                 // URL is encoded
                 var decoded = HttpUtility.UrlDecode(normalized);
                 Uri ok;
@@ -109,18 +99,17 @@ namespace Chaucer.OpenLibraryService.Upstream.OpenLibrary
                 {
                     return ok;
                 }
+                
+                // Multiple http prefixes => Unhandled
+                var lastHttpIndex = normalized.LastIndexOf(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase);
+                var lastHttpValue = normalized.Substring(lastHttpIndex);
+                if (Uri.TryCreate(lastHttpValue, UriKind.Absolute, out ok))
+                {
+                    return ok;
+                }
 
                 // Removing space is just as destructive as not, because sometimes multiple URLs are jammed into a single field, but removing spaces
                 // makes them parseable, which is also wrong.
-                // if (normalized.Contains(" ", StringComparison.Ordinal))
-                // {
-                //     var stripSpaces = normalized.Replace(" ", "");
-                //     if (Uri.TryCreate(stripSpaces, UriKind.Absolute, out ok))
-                //     {
-                //         return ok;
-                //     }
-                // }
-                
                 throw new ArgumentException($"URL appears to contain an unparseable hostname: {broken}");
             }
             

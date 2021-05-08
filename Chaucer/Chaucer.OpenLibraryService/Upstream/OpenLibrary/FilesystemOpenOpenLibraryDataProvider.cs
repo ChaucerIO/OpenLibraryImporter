@@ -1,42 +1,42 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using System.Linq;
-using System.Net;
 using System.Text;
 using System.Threading.Tasks;
 using Chaucer.Common;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 
 namespace Chaucer.OpenLibraryService.Upstream.OpenLibrary
 {
-    public class FilesystemOpenLibraryDataProvider :
-        ILibraryDataProvider
+    public class FilesystemOpenOpenLibraryDataProvider :
+        IOpenLibraryDataProvider
     {
         private readonly string _path;
         private readonly JsonSerializerSettings _jsonSettings;
-        private readonly Encoding _textEncoding;
         private readonly IFilesystem _fs;
+        private readonly ILogger<IOpenLibraryDataProvider> _logger;
 
-        public FilesystemOpenLibraryDataProvider(string uri, Encoding textEncoding, IFilesystem fs, JsonSerializerSettings jsonSettings)
+        public FilesystemOpenOpenLibraryDataProvider(string uri, IFilesystem fs, JsonSerializerSettings jsonSettings, ILogger<IOpenLibraryDataProvider> logger)
         {
             if (string.IsNullOrWhiteSpace(uri)) throw new ArgumentNullException(nameof(uri));
             _path = uri;
 
-            _textEncoding = textEncoding ?? throw new ArgumentNullException(nameof(textEncoding));
             _fs = fs ?? throw new ArgumentNullException(nameof(fs));
             _jsonSettings = jsonSettings ?? throw new ArgumentNullException(nameof(jsonSettings));
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
         public async Task<List<Author>> GetAuthorsAsync()
         {
             var timer = Stopwatch.StartNew();
             var compressedAuthors = await _fs.FileReadAllBytesAsync(_path);
-            Console.WriteLine($"{timer.ElapsedMilliseconds:N0}ms to read gzip into memory");
+            _logger.LogInformation($"{timer.ElapsedMilliseconds:N0}ms to read gzip into memory");
+
             timer = Stopwatch.StartNew();
             var authorBlobs = await Compression.FromGzippedStringAsync(compressedAuthors).ToListAsync();
-            Console.WriteLine($"{timer.ElapsedMilliseconds:N0}ms to decompress");
+            _logger.LogInformation($"{timer.ElapsedMilliseconds:N0}ms to decompress");
 
             var authors = authorBlobs
                 .AsParallel()

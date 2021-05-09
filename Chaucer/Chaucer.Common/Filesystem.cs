@@ -25,5 +25,9 @@ namespace Chaucer.Common
             => Directory.EnumerateFiles(path, searchPattern, searchOption);
         public string[] DirectoryGetFiles(string path, string searchPattern, SearchOption searchOption)
             => Directory.GetFiles(path, searchPattern, searchOption);
+
+        public FileStream FileStream(string path, FileMode fileMode) => new FileStream(path, fileMode);
+        public FileStream FileCreate(string path) => File.Create(path);
+        public FileStream FileOpenRead(string path) => File.OpenRead(path);
     }
 }

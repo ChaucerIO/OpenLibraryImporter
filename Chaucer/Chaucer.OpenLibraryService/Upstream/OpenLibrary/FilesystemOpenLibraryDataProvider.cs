@@ -10,7 +10,7 @@ using Newtonsoft.Json;
 
 namespace Chaucer.OpenLibraryService.Upstream.OpenLibrary
 {
-    public class FilesystemOpenOpenLibraryDataProvider :
+    public class FilesystemOpenLibraryDataProvider :
         IOpenLibraryDataProvider
     {
         private readonly string _path;
@@ -18,7 +18,7 @@ namespace Chaucer.OpenLibraryService.Upstream.OpenLibrary
         private readonly IFilesystem _fs;
         private readonly ILogger<IOpenLibraryDataProvider> _logger;
 
-        public FilesystemOpenOpenLibraryDataProvider(string uri, IFilesystem fs, JsonSerializerSettings jsonSettings, ILogger<IOpenLibraryDataProvider> logger)
+        public FilesystemOpenLibraryDataProvider(string uri, IFilesystem fs, JsonSerializerSettings jsonSettings, ILogger<IOpenLibraryDataProvider> logger)
         {
             if (string.IsNullOrWhiteSpace(uri)) throw new ArgumentNullException(nameof(uri));
             _path = uri;

@@ -20,5 +20,8 @@ namespace Chaucer.Common
         string[] DirectoryGetDirectories(string path);
         string[] DirectoryGetFiles(string path, string searchPattern, SearchOption searchOption);
         IEnumerable<string> DirectoryEnumerateFiles(string path, string searchPattern, SearchOption searchOption);
+        FileStream FileStream(string path, FileMode fileMode);
+        FileStream FileCreate(string path);
+        FileStream FileOpenRead(string path);
     }
 }

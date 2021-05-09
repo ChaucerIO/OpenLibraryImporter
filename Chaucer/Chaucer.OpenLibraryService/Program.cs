@@ -1,13 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
 using Chaucer.Common;
 using Chaucer.OpenLibraryService.Downstream;
-using Chaucer.OpenLibraryService.Upstream;
 using Chaucer.OpenLibraryService.Upstream.OpenLibrary;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
@@ -28,27 +28,26 @@ namespace Chaucer.OpenLibraryService
             var openLibraryPublicationsFile = "ol_dump_editions_2021-03-19.txt.gz";
             var gzAuthors = Path.Combine(dataDir, openLibraryAuthorFile);
             var fs = new Filesystem();
-            // var openLibraryProvider = new FilesystemOpenOpenLibraryDataProvider(gzAuthors, fs, jsonSerializerSettings, GetLogger<IOpenLibraryDataProvider>());
-            // var authors = await openLibraryProvider.GetAuthorsAsync();
-
-            var chaucerProvider = new FilesystemPersistence(dataDir, jsonSerializerSettings, GetLogger<FilesystemPersistence>());
-            // write the bytes
-            var authorsRecord = "authors-2021-03-19";
-            // await chaucerProvider.WriteAuthorsAsync(authors, authorsRecord);
-            // read them back
-            // var secondAuthors = await chaucerProvider.ReadAuthorsAsync(authorsRecord) as List<Author>;
             
-            // Write down the JSON
-
+            const string url = "https://archive.org/services/collection-rss.php?collection=ol_exports";
             var compressingRefreshingDnsHandler = new SocketsHttpHandler
             {
                 PooledConnectionLifetime = TimeSpan.FromSeconds(120),
                 AutomaticDecompression = DecompressionMethods.All,
             };
-            const string url = "https://archive.org/services/collection-rss.php?collection=ol_exports";
-            var rssClient = new HttpClient(compressingRefreshingDnsHandler);
-            var rssReader = new OpenLibraryFeedManager(url, rssClient, GetLogger<OpenLibraryFeedManager>());
-            await rssReader.CheckFeedAsync();
+            var httpClient = new HttpClient(compressingRefreshingDnsHandler);
+
+            var fsDataManager = new FilesystemPersistence(dataDir, httpClient, fs, jsonSerializerSettings, GetLogger<FilesystemPersistence>());
+            var lastRecordTime = DateTime.Parse("2021-03-19");
+
+            var openLibraryMgr = new OpenLibraryDataManager(url, httpClient, GetLogger<OpenLibraryDataManager>());
+            var updates = await openLibraryMgr.CheckForUpdatesAsync(lastRecordTime);
+            if (!updates.Any())
+            {
+                return;
+            }
+
+            var updateTasks = await fsDataManager.StreamUpdatesToArchiveAsync(updates);
 
         }
         

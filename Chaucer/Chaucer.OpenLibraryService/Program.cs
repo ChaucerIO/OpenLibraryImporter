@@ -29,7 +29,6 @@ namespace Chaucer.OpenLibraryService
             var gzAuthors = Path.Combine(dataDir, openLibraryAuthorFile);
             var fs = new Filesystem();
             
-            const string url = "https://archive.org/services/collection-rss.php?collection=ol_exports";
             var compressingRefreshingDnsHandler = new SocketsHttpHandler
             {
                 PooledConnectionLifetime = TimeSpan.FromSeconds(120),
@@ -37,16 +36,24 @@ namespace Chaucer.OpenLibraryService
             };
             var httpClient = new HttpClient(compressingRefreshingDnsHandler);
 
-            var fsDataManager = new FilesystemPersistence(dataDir, httpClient, fs, jsonSerializerSettings, GetLogger<FilesystemPersistence>());
-            var lastRecordTime = DateTime.Parse("2021-03-19");
+            var fsDataManager = new FilesystemArchivist(dataDir, httpClient, fs, jsonSerializerSettings, GetLogger<FilesystemArchivist>());
 
-            var openLibraryMgr = new OpenLibraryDataManager(url, httpClient, GetLogger<OpenLibraryDataManager>());
+            var editions = await fsDataManager.GetAuthorsDatestampsAsync();
+            var authors = await fsDataManager.GetEditionsDatestampsAsync();
+            var lastRecordTime = editions.FirstOrDefault() >= authors.FirstOrDefault()
+                ? editions.FirstOrDefault()
+                : authors.FirstOrDefault();
+
+            const string rssUrl = "https://archive.org/services/collection-rss.php?collection=ol_exports";
+            var rssCatalogReader = new OpenLibraryRssReader(httpClient, rssUrl, GetLogger<IOpenLibraryCatalogReader>());
+
+            var openLibraryMgr = new HttpToFilesystemOpenLibraryDataManager(httpClient, fs, GetLogger<HttpToFilesystemOpenLibraryDataManager>());
             var updates = await openLibraryMgr.CheckForUpdatesAsync(lastRecordTime);
             if (!updates.Any())
             {
                 return;
             }
-
+            
             var updateTasks = await fsDataManager.StreamUpdatesToArchiveAsync(updates);
 
         }

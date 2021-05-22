@@ -8,7 +8,8 @@ namespace OpenLibraryService.Upstream.OpenLibrary
     /// Represents the complete object graph from the open library data. Mostly used for deserialization purposes. For working with Authors, you are probably
     /// looking for the <typeparam name="Author"></typeparam> datatype.
     /// </summary>
-    public record Author
+    public record Author :
+        IDated
     {
         //Note: bio is sometimes a plain string rather than an object
         [JsonConverter(typeof(BioConverter))]

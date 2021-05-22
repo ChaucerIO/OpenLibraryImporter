@@ -10,5 +10,5 @@ variable "env" {
 
 variable "openlib-versions" {
   type = string
-  default = "chaucer-openlib-version"
+  default = "chaucer-openlib-versions"
 }

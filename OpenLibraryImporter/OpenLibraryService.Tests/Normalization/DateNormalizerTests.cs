@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Commons;
 using NUnit.Framework;
 using NUnit.Framework.Interfaces;
+using OpenLibraryService.Normalization;
 
 namespace OpenLibraryService.Tests.Normalization
 {

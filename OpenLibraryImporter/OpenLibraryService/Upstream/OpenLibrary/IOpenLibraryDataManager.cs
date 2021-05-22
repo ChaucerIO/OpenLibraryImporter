@@ -7,43 +7,66 @@ using System.Threading.Tasks;
 namespace OpenLibraryService.Upstream.OpenLibrary
 {
     /// <summary>
+    /// Represents the Open Library seek-and-archive activities. There are no data-normalization operations here -- just read from the Open Lib systems of
+    /// record, and write to Chaucer's internal archives. We do this because we want to be good citizens, and because the Open Library endpoints are incredibly
+    /// slow.
+    /// </summary>
+    public interface IOpenLibraryArchivist
+    {
+        /// <summary>
+        /// Checks the Open Library for recent updates. If any are found, the updates are downloaded, and added to the internal Chaucer archive.
+        /// </summary>
+        /// <param name="ct"></param>
+        /// <returns></returns>
+        Task Update(CancellationToken ct);
+        
+        // Task<IReadOnlyCollection<OpenLibraryDownload>> GetOpenLibCatalogFeed(DateTime newerThan, CancellationToken ct);
+
+        /// <summary>
+        /// Finds the information about archive versions saved to the internal archives published during the specified time range, of the specified type
+        /// </summary>
+        /// <param name="searchStart"></param>
+        /// <param name="searchEnd"></param>
+        /// <param name="archiveTypes"></param>
+        /// <param name="ct"></param>
+        /// <returns></returns>
+        Task<IReadOnlyCollection<OpenLibraryVersion>> FindArchiveEntries(
+            DateTime searchStart,
+            DateTime searchEnd,
+            ICollection<OpenLibraryArchiveType> archiveTypes,
+            CancellationToken ct);
+
+        /// <summary>
+        /// Finds the inforation about the latest archive versions saved to the internal archives data store, for the specified type
+        /// </summary>
+        /// <param name="archiveType"></param>
+        /// <param name="ct"></param>
+        /// <returns></returns>
+        Task<OpenLibraryVersion> FindLatestArchiveEntry(OpenLibraryArchiveType archiveType, CancellationToken ct);
+
+        /// <summary>
+        /// Saves the archive to the data store, including any secondary indexing stores that aid with storage and retrieval of archive metadata
+        /// </summary>
+        /// <param name="archive"></param>
+        /// <param name="ct"></param>
+        /// <returns></returns>
+        Task<OpenLibraryVersion> SaveArchive(OpenLibraryDownload archive, CancellationToken ct);
+
+        /// <summary>
+        /// Gets the archive
+        /// </summary>
+        /// <param name="date"></param>
+        /// <param name="archiveType"></param>
+        /// <param name="ct"></param>
+        /// <returns></returns>
+        Task<Stream> GetArchive(DateTime date, OpenLibraryArchiveType archiveType, CancellationToken ct);
+    }
+    
+    /// <summary>
     /// Chaucer's internal archives of the published, Open Library archives
     /// </summary>
     public interface IOpenLibraryDataManager
     {
-        /// <summary>
-        /// Returns the archived Open Library catalog versions available.
-        /// </summary>
-        /// <param name="from">Inclusive search start</param>
-        /// <param name="to">Inclusive search end</param>
-        /// <param name="ct"></param>
-        /// <returns></returns>
-        Task<IReadOnlyCollection<OpenLibraryDownload>> GetArchiveIndexAsync(DateTime from, DateTime to, CancellationToken ct);
-
-        /// <summary>
-        /// Returns the latest version of the Open Library catalog available in the archives
-        /// </summary>
-        /// <returns></returns>
-        Task<Stream> GetLatestArchiveAsync(OpenLibraryArchiveType archiveType, CancellationToken ct);
-
-        /// <summary>
-        /// Returns a specific version of the Open Library catalog version from the archives. The returned Stream MUST be disposed by the caller, otherwise
-        /// you will have a memory leak.
-        /// </summary>
-        /// <param name="datestamp"></param>
-        /// <param name="archiveType">Either "authors" or "editions"</param>
-        /// <param name="ct"></param>
-        /// <returns></returns>
-        Task<Stream> GetArchiveAsync(DateTime datestamp, OpenLibraryArchiveType archiveType, CancellationToken ct);
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="update"></param>
-        /// <param name="ct"></param>
-        /// <returns></returns>
-        Task<OpenLibraryVersion> SaveArchiveAsync(OpenLibraryDownload update, CancellationToken ct);
-        
         // /// <summary>
         // /// Streams the Open Library download to the target location. Typically an HTTP stream to filesystem stream or HTTP stream to object store stream.
         // /// </summary>
@@ -57,12 +80,5 @@ namespace OpenLibraryService.Upstream.OpenLibrary
         // /// <param name="lastUpdate"></param>
         // /// <returns></returns>
         // Task<IReadOnlyCollection<OpenLibraryDownload>> CheckForUpdatesAsync(DateTime lastUpdate);
-        //
-        // /// <summary>
-        // /// 
-        // /// </summary>
-        // /// <param name="datestamp"></param>
-        // /// <returns></returns>
-        // Task<IReadOnlyCollection<OpenLibraryDownload>> GetOpenLibraryCatalogUpdateJobsAsync(DateTime datestamp);
     }
 }

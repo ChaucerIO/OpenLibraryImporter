@@ -1,5 +1,6 @@
 using System;
 using Amazon.DynamoDBv2.DataModel;
+using OpenLibraryService.Utilities;
 
 namespace OpenLibraryService.Upstream.OpenLibrary
 {
@@ -27,15 +28,26 @@ namespace OpenLibraryService.Upstream.OpenLibrary
         public string Source { get; init; }
         public OpenLibraryArchiveType ArchiveType { get; init; }
         public DateTime Datestamp { get; init; }
+        public string ObjectName => this.GetObjectName();
+    }
+
+    public static class OpenLibraryDownloadExtensions
+    {
+        public static string GetObjectName(this OpenLibraryDownload dl)
+            => GetObjectName(dl.Datestamp, dl.ArchiveType);
+        
+        public static string GetObjectName(DateTime dt, OpenLibraryArchiveType archiveType)
+            => $"{dt.ToIsoDateString()}-{archiveType.GetKey()}.json.gz";
     }
 
     [DynamoDBTable("chaucer-openlib-versions")]
     public record OpenLibraryVersion
     {
-        [DynamoDBHashKey]
-        public string Type { get; init; }
+        [DynamoDBHashKey] public string Kind => Download.ArchiveType.GetKey();
+
         [DynamoDBRangeKey(typeof(DynamoDateTimeConverter))]
-        public string Version { get; init; }
+        public string PublishDate => Download.Datestamp.ToIsoDateString();
+        
         public OpenLibraryDownload Download { get; init; }
         public long Bytes { get; init; }
         public string Uri { get; init; }

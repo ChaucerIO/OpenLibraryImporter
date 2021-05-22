@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.ServiceModel.Syndication;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Xml;
 using Microsoft.Extensions.Logging;
@@ -15,21 +16,21 @@ namespace OpenLibraryService.Upstream.OpenLibrary
         IOpenLibraryCatalogReader
     {
         private readonly HttpClient _client;
-        private readonly string _url;
+        private readonly string _rssUrl;
         private readonly ILogger<IOpenLibraryCatalogReader> _logger;
 
         public OpenLibraryRssReader(HttpClient client, string url, ILogger<IOpenLibraryCatalogReader> logger)
         {
             _client = client ?? throw new ArgumentNullException(nameof(client));
-            _url = string.IsNullOrWhiteSpace(url) ? throw new ArgumentNullException(nameof(url)) : url;
+            _rssUrl = string.IsNullOrWhiteSpace(url) ? throw new ArgumentNullException(nameof(url)) : url;
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
         
-        public async Task<IReadOnlyCollection<DateTime>> GetCatalogDatestampsAsync()
+        public async Task<IReadOnlyCollection<DateTime>> GetCatalogDatestampsAsync(CancellationToken ct)
         {
-            _logger.LogInformation("Checking Open Library RSS feed for updates");
+            _logger.LogInformation($"Checking Open Library RSS feed for updates: {_rssUrl}");
             var timer = Stopwatch.StartNew();
-            using (var response = await _client.GetAsync(_url, HttpCompletionOption.ResponseHeadersRead))
+            using (var response = await _client.GetAsync(_rssUrl, HttpCompletionOption.ResponseHeadersRead))
             {
                 if (!response.IsSuccessStatusCode)
                 {
@@ -50,7 +51,7 @@ namespace OpenLibraryService.Upstream.OpenLibrary
                         .ToList();
                     
                     timer.Stop();
-                    _logger.LogInformation($"Finished checking Open Library RSS feed for updates in {timer.ElapsedMilliseconds:N0} with {items.Count:N0} items found");
+                    _logger.LogInformation($"Finished checking Open Library RSS feed for updates in {timer.ElapsedMilliseconds:N0}ms with {items.Count:N0} items found");
                     
                     return items;
                 }
@@ -65,7 +66,7 @@ namespace OpenLibraryService.Upstream.OpenLibrary
         private static string ExtractDateStamp(string title)
             => title.Split("_").Last();
 
-        public async Task<IReadOnlyCollection<OpenLibraryDownload>> GetDownloadsForVersionAsync(DateTime datestamp)
+        public async Task<IReadOnlyCollection<OpenLibraryDownload>> GetDownloadsForVersionAsync(DateTime datestamp, CancellationToken ct)
         {
             var checks = new[]
             {

@@ -1,23 +1,20 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using Amazon;
 using Amazon.DynamoDBv2;
-using Amazon.Runtime;
-using Amazon.Runtime.CredentialManagement;
 using Amazon.S3;
 using Commons;
+using Commons.Aws;
+using Commons.Aws.Storage;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Serialization;
-using OpenLibraryService.Downstream;
 using OpenLibraryService.Upstream.OpenLibrary;
 
 namespace OpenLibraryService
@@ -43,24 +40,19 @@ namespace OpenLibraryService
             };
             var httpClient = new HttpClient(compressingRefreshingDnsHandler);
 
-            // var fsDataManager = new FilesystemArchivist(dataDir, httpClient, fs, jsonSerializerSettings, GetLogger<FilesystemArchivist>());
-
-            // var editions = await fsDataManager.GetAuthorsDatestampsAsync();
-            // var authors = await fsDataManager.GetEditionsDatestampsAsync();
-            // var lastRecordTime = editions.FirstOrDefault() >= authors.FirstOrDefault()
-            //     ? editions.FirstOrDefault()
-            //     : authors.FirstOrDefault();
-
             const string rssUrl = "https://archive.org/services/collection-rss.php?collection=ol_exports";
             var openLibRssReader = new OpenLibraryRssReader(httpClient, rssUrl, GetLogger<IOpenLibraryCatalogReader>());
             const string archivesBucketName = "chaucer-openlib-versions";
             const string archivesTableName = archivesBucketName;
             
-            var (credentials, regionEndpoint) = GetAwsConfig();
+            var (credentials, regionEndpoint) = Config.GetAwsConfig(awsProfileName: "chaucer-tform", region: "us-east-2");
+            var s3Client = new AmazonS3Client(credentials, regionEndpoint);
+            
+            var s3Streamer = new S3Streamer(httpClient, s3Client, chunkSizeBytes: 5 * 1024 * 1024, GetLogger<IStorageStreamer>());
             var openLibArchive = new AwsOpenLibraryArchivist(
                 openLibRssReader,
-                httpClient,
-                new AmazonS3Client(credentials, regionEndpoint),
+                s3Streamer,
+                s3Client,
                 archivesBucketName,
                 archivesTableName,
                 new AmazonDynamoDBClient(credentials, regionEndpoint),
@@ -68,30 +60,6 @@ namespace OpenLibraryService
                 GetLogger<IOpenLibraryArchivist>());
 
             await openLibArchive.Update(ct);
-            
-            // var newVersions = await openLibArchive.GetOpenLibCatalogFeed(DateTime.Now.AddDays(-30), ct);
-            // var foo = openLibArchive.
-            
-            
-            //https://rianjs.net//big/openlib/2021-04-12-authors-orig.txt.gz
-            var dl = new OpenLibraryDownload
-            {
-                Datestamp = DateTime.Parse("2021-03-12"),
-                Source = "https://rianjs.net//big/openlib/2021-04-12-authors-orig.txt.gz",
-                ArchiveType = OpenLibraryArchiveType.Authors,
-            };
-            
-            // var saveOp = await openLibArchive.SaveArchiveAsync(dl, CancellationToken.None);
-
-            // var openLibraryMgr = new HttpToFilesystemOpenLibraryDataManager(httpClient, fs, GetLogger<HttpToFilesystemOpenLibraryDataManager>());
-            // var updates = await openLibraryMgr.CheckForUpdatesAsync(lastRecordTime);
-            // if (!updates.Any())
-            // {
-            //     return;
-            // }
-            
-            // var updateTasks = await fsDataManager.StreamUpdatesToArchiveAsync(updates);
-
         }
         
         private static JsonSerializerSettings GetJsonSerializerSettings()
@@ -145,19 +113,6 @@ namespace OpenLibraryService
 
             var logger = loggerFactory.CreateLogger<T>();
             return logger;
-        }
-        
-        private static (AWSCredentials credentials, RegionEndpoint regionEndpoint) GetAwsConfig(string awsProfileName = "chaucer-tform", string region = "us-east-2")
-        {
-            var credProfileStoreChain = new CredentialProfileStoreChain();
-            if (credProfileStoreChain.TryGetAWSCredentials(awsProfileName, out var awsCredentials))
-            {
-                // Console.WriteLine("Access Key: " + awsCredentials.GetCredentials().AccessKey);
-                // Console.WriteLine("Secret Key: " + awsCredentials.GetCredentials().SecretKey);
-                return (awsCredentials, RegionEndpoint.GetBySystemName("us-east-2"));
-            }
-
-            throw new ArgumentException($"{awsProfileName} was not a profile available in the credentials store");
         }
     }
 }

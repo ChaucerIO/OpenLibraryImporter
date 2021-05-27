@@ -3,13 +3,13 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using Amazon.S3;
 using Commons;
+using Commons.Aws.Storage;
 using Microsoft.Extensions.Logging;
 using OpenLibraryService.Utilities;
 
@@ -19,9 +19,9 @@ namespace OpenLibraryService.Upstream.OpenLibrary
         IOpenLibraryArchivist
     {
         private readonly IOpenLibraryCatalogReader _openLibRssReader;
-        private readonly HttpClient _openLibraryClient;
-        private readonly IAmazonS3 _s3Client;
-        private readonly string _bucketName;
+        private readonly IStorageStreamer _storageStreamer;
+        private readonly IAmazonS3 _s3;
+        private readonly string _openLibVersionsBucket;
         private readonly string _dynamoVersionsTable;
         private readonly IAmazonDynamoDB _dynamoClient;
         private readonly IClock _clock;
@@ -29,25 +29,26 @@ namespace OpenLibraryService.Upstream.OpenLibrary
 
         public AwsOpenLibraryArchivist(
             IOpenLibraryCatalogReader openLibRssReader,
-            HttpClient openLibraryClient,
+            IStorageStreamer storageStreamer,
             IAmazonS3 s3Client,
-            string bucketName,
+            string openLibVersionsBucketName,
             string dynamoOpenLibVersionsTable,
             IAmazonDynamoDB dynamoClient,
             IClock clock,
             ILogger<IOpenLibraryArchivist> logger)
         {
             _openLibRssReader = openLibRssReader ?? throw new ArgumentNullException(nameof(openLibRssReader));
-            _openLibraryClient = openLibraryClient ?? throw new ArgumentNullException(nameof(openLibraryClient));
-            _s3Client = s3Client ?? throw new ArgumentNullException(nameof(s3Client));
-            _bucketName = string.IsNullOrWhiteSpace(bucketName) ? throw new ArgumentNullException(nameof(bucketName)) : bucketName;
+            _storageStreamer = storageStreamer ?? throw new ArgumentNullException(nameof(storageStreamer));
+            _s3 = s3Client ?? throw new ArgumentNullException(nameof(s3Client));
+            _openLibVersionsBucket = string.IsNullOrWhiteSpace(openLibVersionsBucketName)
+                ? throw new ArgumentNullException(nameof(openLibVersionsBucketName))
+                : openLibVersionsBucketName;
             _dynamoVersionsTable = string.IsNullOrWhiteSpace(dynamoOpenLibVersionsTable)
                 ? throw new ArgumentNullException(nameof(dynamoOpenLibVersionsTable))
                 : dynamoOpenLibVersionsTable;
             _dynamoClient = dynamoClient ?? throw new ArgumentNullException(nameof(dynamoClient));
             _clock = clock ?? throw new ArgumentNullException(nameof(clock));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            _openLibRssReader = openLibRssReader;
         }
 
         public async Task Update(CancellationToken ct)
@@ -116,43 +117,6 @@ namespace OpenLibraryService.Upstream.OpenLibrary
             _logger.LogInformation($"Downloaded {versionsRequired.Count} versions from the Open Library in {timer.Elapsed.TotalSeconds} secs");
         }
 
-        /// <summary>
-        /// Returns the list of published catalog entries, typically from the Open Library RSS feed
-        /// </summary>
-        /// <param name="newerThan">Inclusive check</param>
-        /// <param name="ct"></param>
-        /// <returns></returns>
-        private async Task<IReadOnlyCollection<OpenLibraryDownload>> GetOpenLibCatalogFeed(DateTime newerThan, CancellationToken ct)
-        {
-            var datestamps = await _openLibRssReader.GetCatalogDatestampsAsync(ct);
-            var versionsTasks = datestamps
-                .Where(d => d >= newerThan)
-                .Select(d => _openLibRssReader.GetDownloadsForVersionAsync(d, ct))
-                .ToList();
-
-            await Task.WhenAll(versionsTasks);
-
-            var faults = versionsTasks
-                .Where(t => t.IsFaulted)
-                .ToList();
-            if (faults.Any())
-            {
-                throw new AggregateException(faults.Select(f => f.Exception));
-            }
-
-            var versions = versionsTasks
-                .SelectMany(t => t.Result)
-                .Select(r => new OpenLibraryDownload
-                {
-                    Datestamp = r.Datestamp,
-                    Source = r.Source,
-                    ArchiveType = r.ArchiveType,
-                })
-                .ToList();
-
-            return versions;
-        }
-
         public async Task<IReadOnlyCollection<OpenLibraryVersion>> FindArchiveEntries(
             DateTime searchStart,
             DateTime searchEnd,
@@ -215,42 +179,19 @@ namespace OpenLibraryService.Upstream.OpenLibrary
 
         public async Task<OpenLibraryVersion> SaveArchive(OpenLibraryDownload version, CancellationToken ct)
         {
-            long size;
-            long mB;
-
-            var timer = Stopwatch.StartNew();
-            using (var response = await _openLibraryClient.GetAsync(version.Source, HttpCompletionOption.ResponseHeadersRead, ct))
+            var  transferReport = await _storageStreamer.StreamHttpToS3(version.Source, _openLibVersionsBucket, version.ObjectName, ct);
+            return new OpenLibraryVersion
             {
-                response.EnsureSuccessStatusCode();
-                size = long.Parse(response.Content.Headers.First(h => string.Equals(h.Key, "Content-Length", StringComparison.OrdinalIgnoreCase)).Value.First());
-                mB = size / (1024 * 1024);
-                
-                _logger.LogInformation($"Beginning {version.ArchiveType} stream ({mB:N2}MB) from {version.Source} to S3 {_bucketName}:{version.ObjectName}");
-
-                using (var responseStream = await response.Content.ReadAsStreamAsync(ct))
-                {
-                    await _s3Client.UploadObjectFromStreamAsync(_bucketName, version.ObjectName, responseStream, additionalProperties: null, ct);
-                }
-                
-                var mbSec = mB / timer.Elapsed.TotalSeconds;
-                _logger.LogInformation($"Streamed {mB:N2}MB {version.ArchiveType} archive from {version.Source} to S3 {_bucketName}:{version.ObjectName} in {timer.Elapsed.TotalSeconds:N0} seconds ({mbSec:N2} MB/sec)");
-                
-                return new OpenLibraryVersion
-                {
-                    Bytes = mB,
-                    Download = version,
-                    Uri = GetS3Url(_bucketName, version.ObjectName),
-                };
-            }
+                Bytes = transferReport.Bytes,
+                Download = version,
+                Uri = transferReport.DestinationUrl,
+            };
         }
         
-        private static string GetS3Url(string bucketName, string objectName)
-            => $"s3://{bucketName}/{objectName}";
-
         public Task<Stream> GetArchive(DateTime date, OpenLibraryArchiveType archiveType, CancellationToken ct)
         {
             var key = OpenLibraryDownloadExtensions.GetObjectName(date, archiveType);
-            return _s3Client.GetObjectStreamAsync(_bucketName, key, additionalProperties: null, ct);
+            return _s3.GetObjectStreamAsync(_openLibVersionsBucket, key, additionalProperties: null, ct);
         }
     }
 }

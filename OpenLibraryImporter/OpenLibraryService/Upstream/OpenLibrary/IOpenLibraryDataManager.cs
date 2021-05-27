@@ -20,8 +20,6 @@ namespace OpenLibraryService.Upstream.OpenLibrary
         /// <returns></returns>
         Task Update(CancellationToken ct);
         
-        // Task<IReadOnlyCollection<OpenLibraryDownload>> GetOpenLibCatalogFeed(DateTime newerThan, CancellationToken ct);
-
         /// <summary>
         /// Finds the information about archive versions saved to the internal archives published during the specified time range, of the specified type
         /// </summary>
@@ -60,25 +58,5 @@ namespace OpenLibraryService.Upstream.OpenLibrary
         /// <param name="ct"></param>
         /// <returns></returns>
         Task<Stream> GetArchive(DateTime date, OpenLibraryArchiveType archiveType, CancellationToken ct);
-    }
-    
-    /// <summary>
-    /// Chaucer's internal archives of the published, Open Library archives
-    /// </summary>
-    public interface IOpenLibraryDataManager
-    {
-        // /// <summary>
-        // /// Streams the Open Library download to the target location. Typically an HTTP stream to filesystem stream or HTTP stream to object store stream.
-        // /// </summary>
-        // /// <param name="updates"></param>
-        // /// <returns></returns>
-        // Task<IReadOnlyList<OpenLibraryDownloadReport>> StreamUpdatesToArchiveAsync(ICollection<OpenLibraryDownload> updates);
-        //
-        // /// <summary>
-        // /// 
-        // /// </summary>
-        // /// <param name="lastUpdate"></param>
-        // /// <returns></returns>
-        // Task<IReadOnlyCollection<OpenLibraryDownload>> CheckForUpdatesAsync(DateTime lastUpdate);
     }
 }

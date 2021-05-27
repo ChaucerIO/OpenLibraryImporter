@@ -21,6 +21,7 @@ namespace OpenLibraryService
 {
     class Program
     {
+        private const int _mBytes = 1024 * 1024;
         static async Task Main(string[] args)
         {
             var ct = new CancellationToken();
@@ -48,7 +49,7 @@ namespace OpenLibraryService
             var (credentials, regionEndpoint) = Config.GetAwsConfig(awsProfileName: "chaucer-tform", region: "us-east-2");
             var s3Client = new AmazonS3Client(credentials, regionEndpoint);
             
-            var s3Streamer = new S3Streamer(httpClient, s3Client, chunkSizeBytes: 5 * 1024 * 1024, GetLogger<IStorageStreamer>());
+            var s3Streamer = new S3Streamer(httpClient, s3Client, chunkSizeBytes: 5 * _mBytes, GetLogger<IStorageStreamer>());
             var openLibArchive = new AwsOpenLibraryArchivist(
                 openLibRssReader,
                 s3Streamer,

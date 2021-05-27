@@ -180,6 +180,7 @@ namespace OpenLibraryService.Upstream.OpenLibrary
         public async Task<OpenLibraryVersion> SaveArchive(OpenLibraryDownload version, CancellationToken ct)
         {
             var  transferReport = await _storageStreamer.StreamHttpToS3(version.Source, _openLibVersionsBucket, version.ObjectName, ct);
+            // TODO: Write to dynamodb
             return new OpenLibraryVersion
             {
                 Bytes = transferReport.Bytes,

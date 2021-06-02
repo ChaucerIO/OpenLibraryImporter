@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Amazon.DynamoDBv2;
+using Amazon.DynamoDBv2.DataModel;
 using Amazon.S3;
 using Commons;
 using Commons.Aws;
@@ -21,7 +22,9 @@ namespace OpenLibraryService
 {
     class Program
     {
+        private static readonly CancellationTokenSource _cts = new CancellationTokenSource();
         private const int _mBytes = 1024 * 1024;
+        
         static async Task Main(string[] args)
         {
             var ct = new CancellationToken();
@@ -43,6 +46,9 @@ namespace OpenLibraryService
 
             const string rssUrl = "https://archive.org/services/collection-rss.php?collection=ol_exports";
             var openLibRssReader = new OpenLibraryRssReader(httpClient, rssUrl, GetLogger<IOpenLibraryCatalogReader>());
+
+            var feedItems = await openLibRssReader.GetLatestVersionForTypes(OpenLibArchiveTypeExtensions.KnownArchiveTypes(), ct);
+            
             const string archivesBucketName = "chaucer-openlib-versions";
             const string archivesTableName = archivesBucketName;
             
@@ -50,17 +56,23 @@ namespace OpenLibraryService
             var s3Client = new AmazonS3Client(credentials, regionEndpoint);
             
             var s3Streamer = new S3Streamer(httpClient, s3Client, chunkSizeBytes: 5 * _mBytes, GetLogger<IStorageStreamer>());
+            var primitiveDynamo = new AmazonDynamoDBClient(credentials, regionEndpoint);
+            var dynamoPocoClient = new DynamoDBContext(primitiveDynamo);
+            
             var openLibArchive = new AwsOpenLibraryArchivist(
-                openLibRssReader,
                 s3Streamer,
                 s3Client,
                 archivesBucketName,
+                dynamoPocoClient,
                 archivesTableName,
-                new AmazonDynamoDBClient(credentials, regionEndpoint),
+                primitiveDynamo,
                 new Clock(),
                 GetLogger<IOpenLibraryArchivist>());
+            
+            var worker = new AwsOpenLibraryArchiveWorker(openLibArchive, openLibRssReader, OpenLibArchiveTypeExtensions.KnownArchiveTypes(), GetLogger<AwsOpenLibraryArchiveWorker>());
 
-            await openLibArchive.Update(ct);
+            var awsOpenLibLoopSvc = new LoopService(worker, TimeSpan.FromHours(24), _cts, GetLogger<LoopService>());
+            await awsOpenLibLoopSvc.LoopAsync();
         }
         
         private static JsonSerializerSettings GetJsonSerializerSettings()

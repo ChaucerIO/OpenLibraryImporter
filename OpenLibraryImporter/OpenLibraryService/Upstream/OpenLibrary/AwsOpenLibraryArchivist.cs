@@ -6,6 +6,8 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Amazon.DynamoDBv2;
+using Amazon.DynamoDBv2.DataModel;
+using Amazon.DynamoDBv2.DocumentModel;
 using Amazon.DynamoDBv2.Model;
 using Amazon.S3;
 using Commons;
@@ -18,137 +20,53 @@ namespace OpenLibraryService.Upstream.OpenLibrary
     public class AwsOpenLibraryArchivist :
         IOpenLibraryArchivist
     {
-        private readonly IOpenLibraryCatalogReader _openLibRssReader;
         private readonly IStorageStreamer _storageStreamer;
         private readonly IAmazonS3 _s3;
         private readonly string _openLibVersionsBucket;
-        private readonly string _dynamoVersionsTable;
+        private readonly IDynamoDBContext _pocoClient;
+        private readonly string _openLibVersionsTable;
         private readonly IAmazonDynamoDB _dynamoClient;
         private readonly IClock _clock;
-        private readonly ILogger<IOpenLibraryArchivist> _logger;
+        private readonly ILogger<IOpenLibraryArchivist> _log;
 
         public AwsOpenLibraryArchivist(
-            IOpenLibraryCatalogReader openLibRssReader,
             IStorageStreamer storageStreamer,
             IAmazonS3 s3Client,
             string openLibVersionsBucketName,
+            IDynamoDBContext pocoClient,
             string dynamoOpenLibVersionsTable,
             IAmazonDynamoDB dynamoClient,
-            IClock clock,
-            ILogger<IOpenLibraryArchivist> logger)
+            IClock clock, ILogger<IOpenLibraryArchivist> log)
         {
-            _openLibRssReader = openLibRssReader ?? throw new ArgumentNullException(nameof(openLibRssReader));
             _storageStreamer = storageStreamer ?? throw new ArgumentNullException(nameof(storageStreamer));
             _s3 = s3Client ?? throw new ArgumentNullException(nameof(s3Client));
             _openLibVersionsBucket = string.IsNullOrWhiteSpace(openLibVersionsBucketName)
                 ? throw new ArgumentNullException(nameof(openLibVersionsBucketName))
                 : openLibVersionsBucketName;
-            _dynamoVersionsTable = string.IsNullOrWhiteSpace(dynamoOpenLibVersionsTable)
+            _pocoClient = pocoClient ?? throw new ArgumentNullException(nameof(pocoClient));
+            _openLibVersionsTable = string.IsNullOrWhiteSpace(dynamoOpenLibVersionsTable)
                 ? throw new ArgumentNullException(nameof(dynamoOpenLibVersionsTable))
                 : dynamoOpenLibVersionsTable;
             _dynamoClient = dynamoClient ?? throw new ArgumentNullException(nameof(dynamoClient));
             _clock = clock ?? throw new ArgumentNullException(nameof(clock));
-            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        }
-
-        public async Task Update(CancellationToken ct)
-        {
-            _logger.LogInformation("Checking archives for most recent entry");
-            var timer = Stopwatch.StartNew();
-            var lastAuthors = FindLatestArchiveEntry(OpenLibraryArchiveType.Authors, ct);
-            var lastEditions = FindLatestArchiveEntry(OpenLibraryArchiveType.Editions, ct);
-            await Task.WhenAll(lastAuthors, lastAuthors);
-            timer.Stop();
-
-            var latestAuthor = lastAuthors.Result?.Download?.Datestamp ?? DateTime.MinValue;
-            var latestEditions = lastEditions.Result?.Download?.Datestamp ?? DateTime.MinValue;
-            var lastTimestamp = latestAuthor >= latestEditions
-                ? latestAuthor
-                : latestEditions;
-            _logger.LogInformation($"Latest internal version is {lastTimestamp.ToIsoDateString()}. Found in {timer.ElapsedMilliseconds:N0}ms");
-
-            _logger.LogInformation($"Checking the Open Library feed to see is there are newer versions than {lastTimestamp.ToIsoDateString()}");
-            timer = Stopwatch.StartNew();
-            var openLibCatalogTimestamps = await _openLibRssReader.GetCatalogDatestampsAsync(ct);
-            var newestOpenLibVersion = openLibCatalogTimestamps
-                .OrderByDescending(d => d)
-                .FirstOrDefault();
-            timer.Stop();
-            _logger.LogInformation($"Found the most recent version of the Open Library data ({newestOpenLibVersion.ToIsoDateString()}), in {timer.ElapsedMilliseconds:N0}ms");
-            
-            if (newestOpenLibVersion <= lastTimestamp)
-            {
-                _logger.LogInformation("Internal archives up to date!");
-                return;
-            }
-
-            _logger.LogInformation("Checking the Open Library timestamps to see which updates are required");
-            timer = Stopwatch.StartNew();
-            var getVersionsTasks = openLibCatalogTimestamps
-                .Where(t => t > lastTimestamp)
-                .Distinct()
-                .Select(t => _openLibRssReader.GetDownloadsForVersionAsync(t, ct))
-                .ToList();
-            await Task.WhenAll(getVersionsTasks);
-            timer.Stop();
-            _logger.LogInformation($"Version update check finished in {timer.ElapsedMilliseconds:N0}");
-
-            if (getVersionsTasks.Any(t => t.IsFaulted))
-            {
-                _logger.LogError("One or more version update checks failed");
-                throw new AggregateException(getVersionsTasks.Where(t => t.IsFaulted).Select(f => f.Exception));
-            }
-
-            var versionsRequired = getVersionsTasks
-                .SelectMany(t => t.Result)
-                .OrderByDescending(d => d.Datestamp)
-                .ToList();
-            var topAuthor = versionsRequired.FirstOrDefault(v => v.ArchiveType == OpenLibraryArchiveType.Authors);
-            var topEdition = versionsRequired.FirstOrDefault(v => v.ArchiveType == OpenLibraryArchiveType.Editions);
-            _logger.LogInformation($"{versionsRequired.Count} version updates found");
-            
-            _logger.LogInformation($"Downloading {versionsRequired.Count} versions from the Open Library");
-            timer = Stopwatch.StartNew();
-            var updateTasks = new[] { topAuthor, topEdition }
-                .Select(u => SaveArchive(u, ct))
-                .ToList();
-            await Task.WhenAll(updateTasks);
-            timer.Stop();
-            _logger.LogInformation($"Downloaded {versionsRequired.Count} versions from the Open Library in {timer.Elapsed.TotalSeconds} secs");
+            _log = log ?? throw new ArgumentNullException(nameof(clock));
         }
 
         public async Task<IReadOnlyCollection<OpenLibraryVersion>> FindArchiveEntries(
             DateTime searchStart,
             DateTime searchEnd,
-            ICollection<OpenLibraryArchiveType> archiveTypes,
+            OpenLibraryArchiveType archiveType,
             CancellationToken ct)
         {
             if (searchEnd <= searchStart)
             {
                 throw new ArgumentException($"Search start ({searchStart:O}) must come before search end ({searchEnd:O})");
             }
-            
-            var attributeValuesMap = new Dictionary<string, AttributeValue>
-            {
-                {":type", new AttributeValue {S = "authors"}},
-                {":from", new AttributeValue {S = searchStart.ToIsoDateString()}},
-                {":to", new AttributeValue {S = searchEnd.ToIsoDateString()}},
-            };
 
-            var query = new QueryRequest
-            {
-                TableName = _dynamoVersionsTable,
-                KeyConditionExpression = "Type = :type AND Version BETWEEN :from AND :to",
-                ExpressionAttributeValues = attributeValuesMap,
-            };
-
-            var results = await _dynamoClient.QueryAsync(query, ct);
-            if (results is null || results.Items.Any() == false)
-            {
-                return new List<OpenLibraryVersion>();
-            }
-            
-            return new List<OpenLibraryVersion>();
+            var range = new object[] {searchStart, searchEnd};
+            var query = _pocoClient.QueryAsync<OpenLibraryVersion>(archiveType.GetKey(), QueryOperator.Between, range);
+            var results = await query.GetNextSetAsync(ct);
+            return results;
         }
 
         public async Task<OpenLibraryVersion> FindLatestArchiveEntry(OpenLibraryArchiveType archiveType, CancellationToken ct)
@@ -159,34 +77,62 @@ namespace OpenLibraryService.Upstream.OpenLibrary
                 {":date", new AttributeValue {S = _clock.UtcNow().ToIsoDateString()}},
             };
 
-            var query = new QueryRequest
+            var queryReq = new QueryRequest
             {
-                TableName = _dynamoVersionsTable,
+                TableName = _openLibVersionsTable,
                 KeyConditionExpression = "Kind = :kind AND PublishDate <= :date",
                 ScanIndexForward = false,   // False = sort by descending
                 ExpressionAttributeValues = attributeValuesMap,
                 Limit = 1,
             };
             
-            var results = await _dynamoClient.QueryAsync(query, ct);
-            if (results is null || results.Items.Any() == false)
+            var queryResults = await _dynamoClient.QueryAsync(queryReq, ct);
+            var theResult = queryResults.Items?.SingleOrDefault();
+            if (theResult is null)
             {
                 return null;
             }
-            
-            return null;
+
+            var doc = Document.FromAttributeMap(theResult);
+            var typed = _pocoClient.FromDocument<OpenLibraryVersion>(doc);
+            return typed;
         }
 
         public async Task<OpenLibraryVersion> SaveArchive(OpenLibraryDownload version, CancellationToken ct)
         {
-            var  transferReport = await _storageStreamer.StreamHttpToS3(version.Source, _openLibVersionsBucket, version.ObjectName, ct);
-            // TODO: Write to dynamodb
-            return new OpenLibraryVersion
+            var matchingVersion = await FindArchiveEntries(version.Datestamp.AddDays(-1), version.Datestamp.AddDays(1), version.ArchiveType, ct);
+            if (matchingVersion?.Any(v => v.PublishDate == version.Datestamp) == true)
             {
+                throw new ArgumentException($"{version.ArchiveType.GetKey()} is already in the archives");
+            }
+            
+            var transferReport = await _storageStreamer.StreamHttpToS3(version.Source, _openLibVersionsBucket, version.ObjectName, ct);
+            var versionEntry = new OpenLibraryVersion
+            {
+                SourceUrl = version.Source,
+                Kind = version.ArchiveType.GetKey(),
+                ObjectName = version.ObjectName,
                 Bytes = transferReport.Bytes,
-                Download = version,
                 Uri = transferReport.DestinationUrl,
             };
+            await SaveArchiveEntry(versionEntry, ct);
+
+            return versionEntry;
+        }
+
+        public async Task SaveArchiveEntry(OpenLibraryVersion version, CancellationToken ct)
+        {
+            _log.LogInformation($"Writing OpenLib entry {version.ObjectName} to archive index");
+            var timer = Stopwatch.StartNew();
+            await _pocoClient.SaveAsync(version, ct);
+            timer.Stop();
+            _log.LogInformation($"Writing entry {version.ObjectName} saved to archive index in {timer.ElapsedMilliseconds:N0}ms");
+        }
+
+        public async Task<OpenLibraryVersion> GetArchiveEntry(DateTime date, OpenLibraryArchiveType archiveType, CancellationToken ct)
+        {
+            var q = await _pocoClient.LoadAsync<OpenLibraryVersion>(archiveType.GetKey(), date, ct);
+            return q;
         }
         
         public Task<Stream> GetArchive(DateTime date, OpenLibraryArchiveType archiveType, CancellationToken ct)

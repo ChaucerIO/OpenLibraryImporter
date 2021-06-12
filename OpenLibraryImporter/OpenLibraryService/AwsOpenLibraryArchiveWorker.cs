@@ -58,6 +58,7 @@ namespace OpenLibraryService
             var previousArchives = knownArchiveTypeTasks
                 .Where(t => t.IsCompletedSuccessfully)
                 .Select(t => t.Result)
+                .Where(r => r is not null)
                 .ToDictionary(r => r.Kind, StringComparer.OrdinalIgnoreCase);
             _logger.LogInformation($"Found previous archives for {previousArchives.Count:N0} archive types in {timer.ElapsedMilliseconds:N0}ms");
 

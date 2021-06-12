@@ -114,6 +114,7 @@ namespace OpenLibraryService.Upstream.OpenLibrary
                 ObjectName = version.ObjectName,
                 Bytes = transferReport.Bytes,
                 Uri = transferReport.DestinationUrl,
+                PublishDate = version.Datestamp,
             };
             await SaveArchiveEntry(versionEntry, ct);
 
